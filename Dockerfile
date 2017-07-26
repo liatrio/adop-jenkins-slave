@@ -1,10 +1,6 @@
 FROM centos
 MAINTAINER "Liatrio"
 
-# Java Env Variables
-#ENV JAVA_VERSION=1.8.0_45
-#ENV JAVA_TARBALL=server-jre-8u45-linux-x64.tar.gz
-#ENV JAVA_HOME=/opt/java/jdk${JAVA_VERSION}
 
 # Swarm Env Variables (defaults)
 ENV SWARM_MASTER=http://jenkins:8080/jenkins/
@@ -36,15 +32,6 @@ RUN yum install -y which \
 RUN pip install awscli
 
 RUN curl -fsSL https://get.docker.com/ | sh
-
-# Install Java
-#RUN wget -q --no-check-certificate --directory-prefix=/tmp \
-#         --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" \
-#            http://download.oracle.com/otn-pub/java/jdk/8u45-b14/${JAVA_TARBALL} && \
-#          mkdir -p /opt/java && \
-#              tar -xzf /tmp/${JAVA_TARBALL} -C /opt/java/ && \
-#            alternatives --install /usr/bin/java java /opt/java/jdk${JAVA_VERSION}/bin/java 100 && \
-#                rm -rf /tmp/* && rm -rf /var/log/*
 
 # Make Jenkins a slave by installing swarm-client
 RUN curl -s -o /bin/swarm-client.jar -k http://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/2.0/swarm-client-2.0-jar-with-dependencies.jar
