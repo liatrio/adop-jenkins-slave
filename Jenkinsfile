@@ -107,7 +107,7 @@ pipeline {
                     }
 
                     if (doesVersionExist('liatrio', 'ldop-jenkins-slave', "${TAG}")) {
-                        error("LDOP Liatrio version already exists! Aborting...")
+                        error("LDOP Jenkins slave version already exists! Aborting...")
                     }
                 }
             }
