@@ -1,11 +1,8 @@
-//ldop-jenkins-slave/Jenkinsfile
-
 pipeline {
     agent none
     stages {
-        stage('pipeline-init') {
-            agent any 
-
+        stage('Pipeline-init') {
+            agent any
             steps {
                 script {
                     STAGE = ""
@@ -19,33 +16,7 @@ pipeline {
                 }
             }
         }
-        stage('ldop-jenkins-slave-validate') {
-            agent any
-            steps {
-                sh "git fetch"
-                sh "echo \$(git tag -l | sort -V | tail -1) > result"
-                script {
-                    TAG = readFile('result').trim()
-                  
-                    CHANGED = "NO"
-                  
-                    if (!(TAG ==~ /^[0-9]+\.[0-9]+\.[0-9]+$/)) {
-                        error("Invalid Git tag format! Aborting...")
-                    }
-
-                    if (doesVersionExist('liatrio', 'ldop-jenkins-slave', TAG)) {
-                        error("LDOP Jenkins slave version already exists! Aborting...")
-                    }
-                }
-            }
-            post {
-                success { script { STATUS = "SUCCESS" } }
-                failure { script { STATUS = "FAILURE" } }
-                changed { script { CHANGED = "YES" } }
-                always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'ldop-jenkins-slave-validate'" } }
-            }
-        }
-        stage('hadolint-lint') {
+        stage('Hadolint-lint') {
             agent {
                 docker {
                     image "lukasmartinelli/hadolint"
@@ -55,7 +26,7 @@ pipeline {
             steps {
                 script { CHANGED = "NO" }
                 sh 'hadolint Dockerfile || true'
-            }       
+            }
             post {
                 success { script { STATUS = "SUCCESS" } }
                 failure { script { STATUS = "FAILURE" } }
@@ -63,7 +34,7 @@ pipeline {
                 always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'hadolint-lint'" } }
             }
         }
-        stage('dockerlint-lint') {
+        stage('Dockerlint-lint') {
             agent {
                 docker {
                     image "redcoolbeans/dockerlint"
@@ -80,7 +51,7 @@ pipeline {
                 always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'dockerlint-lint'" } }
             }
         }
-        stage('dockerfile-lint') {
+        stage('Dockerfile-atomic-lint') {
             agent {
                 docker {
                     image "projectatomic/dockerfile-lint"
@@ -98,23 +69,29 @@ pipeline {
                 always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'dockerfile-lint'" } }
             }
         }
-        stage('ldop-jenkins-slave-build') {
+        stage('Build container') {
             agent any
             steps {
                 script { CHANGED = "NO" }
-                sh "printenv"
                 sh "rm -rf test/integration/*"
                 sh "docker build -t liatrio/ldop-jenkins-slave:${env.BRANCH_NAME} ."
                 sh "docker push liatrio/ldop-jenkins-slave:${env.BRANCH_NAME}"
+                script {
+                    if ( env.BRANCH_NAME == 'master' ) {
+                        containerVersion = getVersionFromContainer("liatrio/ldop-jenkins-slave:${env.BRANCH_NAME}")
+                        failIfVersionExists("liatrio","ldop-jenkins-slave",containerVersion)
+                        sh "docker build -t liatrio/ldop-jenkins-slave:${containerVersion} ."
+                    }
+                }
             }
             post {
                 success { script { STATUS = "SUCCESS" } }
                 failure { script { STATUS = "FAILURE" } }
                 changed { script { CHANGED = "YES" } }
-                always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'ldop-jenkins-slave-build'" } }
+                always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'Build container'" } }
             }
         }
-        stage('ldop-integration-testing') {
+        stage('Integration-test') {
             agent {
               docker {
                 image "hashicorp/terraform:full"
@@ -149,19 +126,23 @@ pipeline {
                 always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'ldop-integration-testing'" } }
             }
         }
-        stage('ldop-image-deploy') {
+        stage('Push to dockerhub') {
             agent any
             steps {
                 script { CHANGED = "NO" }
-                sh "docker tag liatrio/ldop-jenkins-slave:${env.BRANCH_NAME} liatrio/ldop-jenkins-slave:${TAG}"
-                sh "docker push liatrio/ldop-jenkins-slave:${TAG}"
+                sh "docker tag liatrio/ldop-jenkins-slave:${env.BRANCH_NAME} liatrio/ldop-jenkins-slave:latest"
+                sh "docker push liatrio/ldop-jenkins-slave:latest"
+                script {
+                    if ( env.BRANCH_NAME == 'master' )
+                        sh "docker push liatrio/ldop-jenkins-slave:${containerVersion}"
+                }
             }
             post {
                 success { script { STATUS = "SUCCESS" } }
                 failure { script { STATUS = "FAILURE" } }
                 changed { script { CHANGED = "YES" } }
-                always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'ldop-image-deploy'" } }
-            }         
+                always { script { SUBJECT = "Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} at 'Push to dockerhub'" } }
+            }
         }
     }
     post {
