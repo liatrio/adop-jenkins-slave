@@ -1,6 +1,7 @@
 FROM centos
 MAINTAINER "Liatrio"
 
+LABEL version = "0.1.8"
 
 # Swarm Env Variables (defaults)
 ENV SWARM_MASTER=http://jenkins:8080/jenkins/
@@ -27,7 +28,7 @@ RUN yum install -y which \
     openssl \
     python-pip \
     libxslt && \
-    yum clean all 
+    yum clean all
 
 RUN pip install awscli
 
